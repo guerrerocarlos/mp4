@@ -34,7 +34,7 @@ var fs = require('fs');
 var path = require('path');
 var util = require('util');
 var readChunk = require('read-chunk');
-var buffer= new Buffer(512000000);
+// var buffer= new Buffer(512000000);
 
 module.exports = function(mp4file) {
 
@@ -44,6 +44,7 @@ module.exports = function(mp4file) {
 	var mp4stats = fs.statSync(mp4file);
 	var file_size = mp4stats.size;
 	console.log("Filesize ", file_size, ' bytes');
+
 	var offset = 0;
 	var atom_size = 16; // Boldy Guess The Atom_Size
 	var atom_type = "ftyp"; // Default Atom/Box Type
@@ -63,19 +64,25 @@ module.exports = function(mp4file) {
 			mp4.major_brand = bufferToChar(readChunk.sync(mp4file, offset+8, 4));
 			mp4.minor_version = bufferToChar(readChunk.sync(mp4file, offset+12, 4));
 			mp4.compatible_brands = bufferToChar(readChunk.sync(mp4file, offset+16, atom_size-16));
-
+			console.log('mp4', mp4)
 			// seek offset
 			offset += atom_size;
-			atom_type = 'moov';
+			atom_type = 'mdat';
 
 		// Motion Object Oriented Vector (aka Moov)
 		}
-		if (atom_type=="moov") {
-			parse_moov(mp4data, buffer, offset);
 
-			// seek offset
-			offset += atom_size;
-		}
+		var nextChunk = readChunk.sync(mp4file, offset+10, 49)
+		console.log('nextChunk', nextChunk.toString())
+
+		// if (atom_type=="mdat") {
+		// 	parse_mdat(mp4data, offset);
+
+		// 	// seek offset
+		// 	offset += atom_size;
+		// }
+		offset = 99999999999999
+
 	}
 
 	console.log("Mp4:", mp4);
@@ -92,6 +99,38 @@ var bufferToChar = function(buffer) {
 		o++;
 	}
 	return output;
+}
+
+
+var parse_mdat = function(mp4data, offset) {
+	var moov_size = fs.readSync(mp4data, buffer, 0, 4, 0); // read 4 bytes unpacked N
+	var moov_type = fs.readSync(mp4data, buffer, 0, 4, 4); // read 4 bytes
+	moov_size = offset + moov_size;
+
+	offset += 8;
+	//console.log("SIZING ::", offset, moov_size, offset);
+	while (offset<moov_size) {
+
+		var size = fs.readSync(mp4data, buffer, offset, 4, 0); // read 4 bytes unpacked N
+		var type = fs.readSync(mp4data, buffer, offset, 4, 4); // read 4 bytes
+	//console.log("MOOVE::", size, type);
+
+		// Motion Vector High Definition (aka MVHD)
+		if (type=="mvhd") {
+			parse_mvhd(mp4data, buffer, offset);
+
+		// Trak (Aka Track)
+		} else if (type=="trak") {
+			parse_track(mp4data, buffer, offset);
+
+		// User Data Space (aka UDTA)
+		} else if (type=="udta") {
+			parse_udta(mp4data, buffer, offset);
+		}
+
+		offset += size;
+		// seek offset
+	}
 }
 
 var parse_moov = function(mp4data, buffer, offset) {

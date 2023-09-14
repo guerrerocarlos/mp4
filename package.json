@@ -24,6 +24,7 @@
   },
   "homepage": "https://github.com/active9/mp4",
   "dependencies": {
+    "codem-isoboxer": "^0.3.6",
     "read-chunk": "^2.0.0"
   }
 }
